@@ -422,7 +422,14 @@ function IncidentDetailsPanel({ incident, onClose }) {
   const label = incident.type === 'animal' ? 'Animal incident' : 'Human / security incident'
 
   return (
-    <aside className="incident-panel" aria-label="Incident details">
+    <aside
+      className="incident-panel"
+      style={{
+        backdropFilter: 'blur(34px) saturate(1.8) contrast(0.92)',
+        WebkitBackdropFilter: 'blur(34px) saturate(1.8) contrast(0.92)',
+      }}
+      aria-label="Incident details"
+    >
       <button className="panel-close" type="button" aria-label="Close details" onClick={onClose}>
         +
       </button>
