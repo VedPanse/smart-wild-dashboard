@@ -135,15 +135,7 @@
   position: absolute;
   inset: 0;
   z-index: -1;
-  background:
-    radial-gradient(circle at 24px 18px, rgba(255, 255, 255, 0.44), transparent 26px),
-    repeating-linear-gradient(
-      135deg,
-      rgba(255, 255, 255, 0.08) 0,
-      rgba(255, 255, 255, 0.08) 1px,
-      transparent 1px,
-      transparent 6px
-    );
+  background: radial-gradient(circle at 24px 18px, rgba(255, 255, 255, 0.44), transparent 26px);
   content: '';
   opacity: 0.7;
   pointer-events: none;
