@@ -1,0 +1,233 @@
+.map-page,
+.full-map {
+  width: 100vw;
+  height: 100svh;
+}
+
+.map-page {
+  position: relative;
+  background: #121210;
+  overflow: hidden;
+}
+
+.full-map {
+  background: #121210;
+}
+
+.quiet-dark {
+  filter: saturate(0.35) contrast(0.86) brightness(1.28);
+  opacity: 0.72;
+}
+
+.leaflet-overlay-pane svg path.leaflet-interactive {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 2px rgba(165, 138, 219, 0.45));
+}
+
+.incident-radius {
+  transition:
+    stroke-width 180ms ease,
+    opacity 180ms ease;
+}
+
+.incident-radius-animal {
+  filter: drop-shadow(0 0 5px rgba(77, 163, 255, 0.5));
+}
+
+.incident-radius-human {
+  filter: drop-shadow(0 0 5px rgba(66, 245, 155, 0.5));
+}
+
+.incident-pulse {
+  display: block;
+  position: relative;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  cursor: pointer;
+  pointer-events: auto;
+  transform-origin: center;
+}
+
+.incident-pulse::before,
+.incident-pulse::after,
+.incident-pulse span {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  display: block;
+  border-radius: 999px;
+  content: '';
+  transform: translate(-50%, -50%);
+}
+
+.incident-pulse::before {
+  width: 22px;
+  height: 22px;
+  border: 1px solid currentColor;
+  opacity: 0.72;
+  animation: incident-pulse 1.9s ease-out infinite;
+}
+
+.incident-pulse::after {
+  width: 14px;
+  height: 14px;
+  background: currentColor;
+  opacity: 0.18;
+  animation: incident-pulse 1.9s ease-out infinite 0.55s;
+}
+
+.incident-pulse span {
+  width: 7px;
+  height: 7px;
+  background: currentColor;
+  box-shadow: 0 0 12px currentColor;
+}
+
+.incident-pulse-animal {
+  color: #4da3ff;
+}
+
+.incident-pulse-human {
+  color: #42f59b;
+}
+
+@keyframes incident-pulse {
+  from {
+    opacity: 0.74;
+    transform: translate(-50%, -50%) scale(0.45);
+  }
+
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2.4);
+  }
+}
+
+.incident-panel {
+  position: fixed;
+  z-index: 700;
+  top: 18px;
+  bottom: 18px;
+  left: 18px;
+  width: min(330px, calc(100vw - 36px));
+  padding: 24px;
+  color: #111;
+  background: rgba(250, 250, 248, 0.68);
+  border: 1px solid rgba(255, 255, 255, 0.46);
+  box-shadow: 0 22px 80px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(28px) saturate(1.45);
+  -webkit-backdrop-filter: blur(28px) saturate(1.45);
+  font-family: 'SF Pro', 'SF Pro Text', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.panel-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 28px;
+  height: 28px;
+  color: #111;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+  font: 400 20px/1 'SF Pro', 'SF Pro Text', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', sans-serif;
+  transform: rotate(45deg);
+}
+
+.panel-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 38px;
+  color: rgba(17, 17, 17, 0.64);
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.panel-status span {
+  width: 8px;
+  height: 8px;
+  background: var(--incident-color);
+  border-radius: 999px;
+  box-shadow: 0 0 16px var(--incident-color);
+}
+
+.incident-panel h1 {
+  max-width: 230px;
+  margin: 0 0 16px;
+  color: #111;
+  font-size: 34px;
+  font-weight: 400;
+  line-height: 0.98;
+  letter-spacing: 0;
+}
+
+.incident-panel p {
+  margin: 0 0 40px;
+  color: rgba(17, 17, 17, 0.68);
+  line-height: 1.45;
+}
+
+.incident-panel dl {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.incident-panel dl div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 10px 0;
+  border-top: 1px solid rgba(17, 17, 17, 0.12);
+}
+
+.incident-panel dt,
+.incident-panel dd {
+  margin: 0;
+  font-weight: 400;
+}
+
+.incident-panel dt {
+  color: rgba(17, 17, 17, 0.54);
+}
+
+.incident-panel dd {
+  color: #111;
+  text-align: right;
+}
+
+.leaflet-container {
+  font-family: 'SF Pro', 'SF Pro Text', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.leaflet-control-attribution {
+  color: rgba(230, 236, 240, 0.45);
+  background: rgba(18, 18, 16, 0.62);
+  font-family: 'SF Pro', 'SF Pro Text', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.leaflet-control-attribution a {
+  color: rgba(230, 236, 240, 0.7);
+  font-weight: 400;
+}
+
+.leaflet-control-zoom a {
+  font-family: 'SF Pro', 'SF Pro Text', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+}
