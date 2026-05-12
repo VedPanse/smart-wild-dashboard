@@ -192,7 +192,7 @@
 }
 
 .incident-panel p {
-  margin: 0 0 40px;
+  margin: 0 0 28px;
   color: rgba(17, 17, 17, 0.68);
   line-height: 1.45;
 }
@@ -225,6 +225,31 @@
 .incident-panel dd {
   color: #111;
   text-align: right;
+}
+
+.incident-video {
+  margin-top: 18px;
+  border-top: 1px solid rgba(17, 17, 17, 0.12);
+  padding-top: 18px;
+}
+
+.incident-video video,
+.incident-video-empty {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: rgba(17, 17, 17, 0.12);
+}
+
+.incident-video video {
+  display: block;
+  object-fit: cover;
+}
+
+.incident-video-empty {
+  display: grid;
+  place-items: center;
+  color: rgba(17, 17, 17, 0.52);
+  font-size: 12px;
 }
 
 .leaflet-container {

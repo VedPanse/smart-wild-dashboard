@@ -59,6 +59,15 @@ function normalizeIncident(row) {
   }
 }
 
+function capitalizeLabel(value) {
+  if (!value) {
+    return 'Unknown'
+  }
+
+  const normalizedValue = String(value).replaceAll('_', ' ')
+  return normalizedValue.charAt(0).toUpperCase() + normalizedValue.slice(1)
+}
+
 function boundsToBox(bounds) {
   return [
     Number(bounds.getWest().toFixed(5)),
@@ -510,7 +519,7 @@ function IncidentDetailsPanel({ incident, onClose }) {
         </div>
         <div>
           <dt>Priority</dt>
-          <dd>{incident.priority}</dd>
+          <dd>{capitalizeLabel(incident.priority)}</dd>
         </div>
         <div>
           <dt>Confidence</dt>
@@ -525,6 +534,15 @@ function IncidentDetailsPanel({ incident, onClose }) {
           <dd>{incident.road_name || 'Unknown'}</dd>
         </div>
       </dl>
+      <section className="incident-video" aria-label="Incident video">
+        {incident.video_clip_url ? (
+          <video controls preload="metadata" src={incident.video_clip_url}>
+            <track kind="captions" />
+          </video>
+        ) : (
+          <div className="incident-video-empty">No video available</div>
+        )}
+      </section>
     </aside>
   )
 }
