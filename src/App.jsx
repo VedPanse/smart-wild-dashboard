@@ -398,13 +398,17 @@ function useIncidents() {
   const [incidents, setIncidents] = useState([])
 
   useEffect(() => {
-    const controller = new AbortController()
+    let isMounted = true
+    let activeRequest = null
 
     async function loadIncidents() {
+      activeRequest?.abort()
+      activeRequest = new AbortController()
+
       try {
         console.info('[SmartWild] Fetching incidents')
         const response = await fetch('/api/incidents', {
-          signal: controller.signal,
+          signal: activeRequest.signal,
         })
 
         if (!response.ok) {
@@ -424,7 +428,9 @@ function useIncidents() {
           ids: normalizedIncidents.map((incident) => incident.id),
         })
 
-        setIncidents(normalizedIncidents)
+        if (isMounted) {
+          setIncidents(normalizedIncidents)
+        }
       } catch (error) {
         if (error.name !== 'AbortError') {
           console.error('[SmartWild] Failed to load incidents', error)
@@ -433,11 +439,27 @@ function useIncidents() {
     }
 
     loadIncidents()
-    const interval = window.setInterval(loadIncidents, 30000)
+    const interval = window.setInterval(loadIncidents, 5000)
+    const stream = new EventSource('/api/incidents/stream')
+
+    stream.addEventListener('open', () => {
+      console.info('[SmartWild] Incident stream connected')
+    })
+
+    stream.addEventListener('changed', (event) => {
+      console.info('[SmartWild] Incident stream changed', event.data)
+      loadIncidents()
+    })
+
+    stream.addEventListener('error', (error) => {
+      console.warn('[SmartWild] Incident stream error; polling fallback remains active', error)
+    })
 
     return () => {
-      controller.abort()
+      isMounted = false
+      activeRequest?.abort()
       window.clearInterval(interval)
+      stream.close()
     }
   }, [])
 
@@ -582,7 +604,11 @@ function IncidentDetailsPanel({ incident, onClose }) {
 
 function App() {
   const incidents = useIncidents()
-  const [selectedIncident, setSelectedIncident] = useState(null)
+  const [selectedIncidentId, setSelectedIncidentId] = useState(null)
+  const selectedIncident = useMemo(
+    () => incidents.find((incident) => incident.id === selectedIncidentId) || null,
+    [incidents, selectedIncidentId],
+  )
 
   return (
     <main className="map-page" aria-label="Full page map">
@@ -602,12 +628,17 @@ function App() {
         />
         <ProtectedBoundaryLayer />
         <IncidentViewport incidents={incidents} />
-        <IncidentLayer incidents={incidents} onSelectIncident={setSelectedIncident} />
+        <IncidentLayer
+          incidents={incidents}
+          onSelectIncident={(incident) => {
+            setSelectedIncidentId(incident.id)
+          }}
+        />
       </MapContainer>
       <IncidentDetailsPanel
         incident={selectedIncident}
         onClose={() => {
-          setSelectedIncident(null)
+          setSelectedIncidentId(null)
         }}
       />
     </main>
