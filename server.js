@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import express from 'express'
 import pg from 'pg'
+import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -10,6 +11,8 @@ const port = process.env.PORT || 3000
 const databaseUrl = process.env.EXTERNAL_DATABASE_URL
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
+const distPath = path.join(__dirname, 'dist')
+const indexPath = path.join(distPath, 'index.html')
 const logPrefix = '[smartwild-dashboard]'
 
 function log(message, details = {}) {
@@ -34,6 +37,29 @@ function logError(message, error, details = {}) {
     }),
   )
 }
+
+function getDatabaseUrlHost(url) {
+  if (!url) {
+    return null
+  }
+
+  try {
+    return new URL(url).host
+  } catch (error) {
+    logError('invalid database URL format', error)
+    return 'invalid-url'
+  }
+}
+
+process.on('uncaughtException', (error) => {
+  logError('uncaught exception', error)
+  process.exit(1)
+})
+
+process.on('unhandledRejection', (reason) => {
+  const error = reason instanceof Error ? reason : new Error(String(reason))
+  logError('unhandled rejection', error)
+})
 
 const pool = databaseUrl
   ? new Pool({
@@ -108,16 +134,19 @@ app.get('/api/incidents', async (_request, response) => {
   }
 })
 
-app.use(express.static(path.join(__dirname, 'dist')))
+app.use(express.static(distPath))
 
 app.get(/.*/, (_request, response) => {
-  response.sendFile(path.join(__dirname, 'dist', 'index.html'))
+  response.sendFile(indexPath)
 })
 
-app.listen(port, () => {
+app.listen(port, '0.0.0.0', () => {
   log('server started', {
     port,
+    host: '0.0.0.0',
     databaseConfigured: Boolean(pool),
-    databaseUrlHost: databaseUrl ? new URL(databaseUrl).host : null,
+    databaseUrlHost: getDatabaseUrlHost(databaseUrl),
+    distExists: fs.existsSync(distPath),
+    indexExists: fs.existsSync(indexPath),
   })
 })
