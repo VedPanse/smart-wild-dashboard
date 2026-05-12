@@ -32,59 +32,31 @@ const nationalBoundarySources = [
   },
 ]
 const zoneWords = /\b(zone|zoning|unit|wilderness|habitat|management|buffer)\b/i
-const simulatedIncidents = [
-  {
-    id: 'inc-001',
-    type: 'animal',
-    latitude: 44.5982,
-    longitude: -110.5472,
-    title: 'Bison on road',
-    description: 'Animal reported on the roadway near a park access road.',
-  },
-  {
-    id: 'inc-002',
-    type: 'animal',
-    latitude: 37.7485,
-    longitude: -119.5886,
-    title: 'Bear near trailhead',
-    description: 'Bear sighting close to a visitor parking area.',
-  },
-  {
-    id: 'inc-003',
-    type: 'human',
-    latitude: 35.6118,
-    longitude: -83.4895,
-    title: 'Fight reported',
-    description: 'Multiple people involved in a physical altercation.',
-  },
-  {
-    id: 'inc-004',
-    type: 'human',
-    latitude: 36.1069,
-    longitude: -112.1129,
-    title: 'Security lapse',
-    description: 'Unauthorized access reported near a restricted overlook.',
-  },
-  {
-    id: 'inc-005',
-    type: 'animal',
-    latitude: 48.7596,
-    longitude: -113.787,
-    title: 'Mountain goat on road',
-    description: 'Wildlife blocking traffic along a mountain route.',
-  },
-  {
-    id: 'inc-006',
-    type: 'human',
-    latitude: 40.3428,
-    longitude: -105.6836,
-    title: 'Shooting report',
-    description: 'Gunshots reported near a protected-area boundary.',
-  },
-]
 const incidentColors = {
   animal: '#4da3ff',
   human: '#42f59b',
+}
+const incidentTypeLabels = {
+  animal_on_road: 'Animal on road',
+  person_on_road: 'Person on road',
+  stopped_vehicle: 'Stopped vehicle',
+  road_obstruction: 'Road obstruction',
+  unknown: 'Unknown incident',
+}
+
+function getIncidentCategory(type) {
+  return type === 'animal_on_road' ? 'animal' : 'human'
+}
+
+function normalizeIncident(row) {
+  return {
+    ...row,
+    category: getIncidentCategory(row.type),
+    title: incidentTypeLabels[row.type] || 'Security incident',
+    description: row.recommended_message || 'No recommended message provided.',
+    latitude: Number(row.latitude),
+    longitude: Number(row.longitude),
+  }
 }
 
 function boundsToBox(bounds) {
@@ -380,17 +352,60 @@ function getIncidentIcon(type) {
   })
 }
 
-function IncidentLayer({ onSelectIncident }) {
-  return simulatedIncidents.map((incident) => {
+function useIncidents() {
+  const [incidents, setIncidents] = useState([])
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    async function loadIncidents() {
+      try {
+        const response = await fetch('/api/incidents', {
+          signal: controller.signal,
+        })
+
+        if (!response.ok) {
+          throw new Error(`Incidents request failed: ${response.status}`)
+        }
+
+        const data = await response.json()
+        setIncidents(
+          (data.incidents || [])
+            .map(normalizeIncident)
+            .filter(
+              (incident) => Number.isFinite(incident.latitude) && Number.isFinite(incident.longitude),
+            ),
+        )
+      } catch (error) {
+        if (error.name !== 'AbortError') {
+          console.error(error)
+        }
+      }
+    }
+
+    loadIncidents()
+    const interval = window.setInterval(loadIncidents, 30000)
+
+    return () => {
+      controller.abort()
+      window.clearInterval(interval)
+    }
+  }, [])
+
+  return incidents
+}
+
+function IncidentLayer({ incidents, onSelectIncident }) {
+  return incidents.map((incident) => {
     const position = [incident.latitude, incident.longitude]
-    const color = incidentColors[incident.type]
+    const color = incidentColors[incident.category]
 
     return (
       <Fragment key={incident.id}>
         <Circle
           center={position}
           radius={incidentRadiusMeters}
-          className={`incident-radius incident-radius-${incident.type}`}
+          className={`incident-radius incident-radius-${incident.category}`}
           pathOptions={{
             color,
             fillColor: color,
@@ -401,7 +416,7 @@ function IncidentLayer({ onSelectIncident }) {
         />
         <Marker
           position={position}
-          icon={getIncidentIcon(incident.type)}
+          icon={getIncidentIcon(incident.category)}
           eventHandlers={{
             click: () => {
               onSelectIncident(incident)
@@ -418,8 +433,8 @@ function IncidentDetailsPanel({ incident, onClose }) {
     return null
   }
 
-  const color = incidentColors[incident.type]
-  const label = incident.type === 'animal' ? 'Animal incident' : 'Human / security incident'
+  const color = incidentColors[incident.category]
+  const label = incident.category === 'animal' ? 'Animal incident' : 'Human / security incident'
 
   return (
     <aside
@@ -448,12 +463,29 @@ function IncidentDetailsPanel({ incident, onClose }) {
           <dt>Longitude</dt>
           <dd>{incident.longitude.toFixed(4)}</dd>
         </div>
+        <div>
+          <dt>Priority</dt>
+          <dd>{incident.priority}</dd>
+        </div>
+        <div>
+          <dt>Confidence</dt>
+          <dd>
+            {typeof incident.confidence === 'number'
+              ? `${Math.round(incident.confidence * 100)}%`
+              : 'Unknown'}
+          </dd>
+        </div>
+        <div>
+          <dt>Road</dt>
+          <dd>{incident.road_name || 'Unknown'}</dd>
+        </div>
       </dl>
     </aside>
   )
 }
 
 function App() {
+  const incidents = useIncidents()
   const [selectedIncident, setSelectedIncident] = useState(null)
 
   return (
@@ -473,7 +505,7 @@ function App() {
           url="https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png"
         />
         <ProtectedBoundaryLayer />
-        <IncidentLayer onSelectIncident={setSelectedIncident} />
+        <IncidentLayer incidents={incidents} onSelectIncident={setSelectedIncident} />
       </MapContainer>
       <IncidentDetailsPanel
         incident={selectedIncident}
