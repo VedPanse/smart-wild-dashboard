@@ -360,6 +360,7 @@ function useIncidents() {
 
     async function loadIncidents() {
       try {
+        console.info('[SmartWild] Fetching incidents')
         const response = await fetch('/api/incidents', {
           signal: controller.signal,
         })
@@ -369,16 +370,22 @@ function useIncidents() {
         }
 
         const data = await response.json()
-        setIncidents(
-          (data.incidents || [])
-            .map(normalizeIncident)
-            .filter(
-              (incident) => Number.isFinite(incident.latitude) && Number.isFinite(incident.longitude),
-            ),
-        )
+        const normalizedIncidents = (data.incidents || [])
+          .map(normalizeIncident)
+          .filter(
+            (incident) => Number.isFinite(incident.latitude) && Number.isFinite(incident.longitude),
+          )
+
+        console.info('[SmartWild] Incidents loaded', {
+          rawCount: data.incidents?.length || 0,
+          renderedCount: normalizedIncidents.length,
+          ids: normalizedIncidents.map((incident) => incident.id),
+        })
+
+        setIncidents(normalizedIncidents)
       } catch (error) {
         if (error.name !== 'AbortError') {
-          console.error(error)
+          console.error('[SmartWild] Failed to load incidents', error)
         }
       }
     }
@@ -396,6 +403,13 @@ function useIncidents() {
 }
 
 function IncidentLayer({ incidents, onSelectIncident }) {
+  useEffect(() => {
+    console.info('[SmartWild] Rendering incident markers', {
+      count: incidents.length,
+      ids: incidents.map((incident) => incident.id),
+    })
+  }, [incidents])
+
   return incidents.map((incident) => {
     const position = [incident.latitude, incident.longitude]
     const color = incidentColors[incident.category]
@@ -426,6 +440,37 @@ function IncidentLayer({ incidents, onSelectIncident }) {
       </Fragment>
     )
   })
+}
+
+function IncidentViewport({ incidents }) {
+  const map = useMapEvents({})
+  const hasFitRef = useRef(false)
+
+  useEffect(() => {
+    if (hasFitRef.current || incidents.length === 0) {
+      return
+    }
+
+    const bounds = L.latLngBounds(
+      incidents.map((incident) => [incident.latitude, incident.longitude]),
+    )
+
+    hasFitRef.current = true
+
+    if (incidents.length === 1) {
+      map.setView(bounds.getCenter(), 11)
+    } else {
+      map.fitBounds(bounds.pad(0.35), {
+        maxZoom: 11,
+      })
+    }
+
+    console.info('[SmartWild] Fitted map to incidents', {
+      count: incidents.length,
+    })
+  }, [incidents, map])
+
+  return null
 }
 
 function IncidentDetailsPanel({ incident, onClose }) {
@@ -505,6 +550,7 @@ function App() {
           url="https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png"
         />
         <ProtectedBoundaryLayer />
+        <IncidentViewport incidents={incidents} />
         <IncidentLayer incidents={incidents} onSelectIncident={setSelectedIncident} />
       </MapContainer>
       <IncidentDetailsPanel

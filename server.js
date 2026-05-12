@@ -10,6 +10,30 @@ const port = process.env.PORT || 3000
 const databaseUrl = process.env.EXTERNAL_DATABASE_URL
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
+const logPrefix = '[smartwild-dashboard]'
+
+function log(message, details = {}) {
+  console.log(
+    `${logPrefix} ${message}`,
+    JSON.stringify({
+      at: new Date().toISOString(),
+      ...details,
+    }),
+  )
+}
+
+function logError(message, error, details = {}) {
+  console.error(
+    `${logPrefix} ${message}`,
+    JSON.stringify({
+      at: new Date().toISOString(),
+      error: error.message,
+      code: error.code,
+      stack: error.stack,
+      ...details,
+    }),
+  )
+}
 
 const pool = databaseUrl
   ? new Pool({
@@ -23,6 +47,7 @@ const pool = databaseUrl
   : null
 
 app.get('/api/health', (_request, response) => {
+  log('health check', { databaseConfigured: Boolean(pool) })
   response.json({
     ok: true,
     databaseConfigured: Boolean(pool),
@@ -30,12 +55,17 @@ app.get('/api/health', (_request, response) => {
 })
 
 app.get('/api/incidents', async (_request, response) => {
+  const startedAt = Date.now()
+  log('incidents request received')
+
   if (!pool) {
+    log('incidents request rejected: missing database URL')
     response.status(500).json({ error: 'EXTERNAL_DATABASE_URL is not configured' })
     return
   }
 
   try {
+    const totalResult = await pool.query('SELECT COUNT(*)::int AS total FROM incidents')
     const { rows } = await pool.query(`
       SELECT
         id,
@@ -61,9 +91,19 @@ app.get('/api/incidents', async (_request, response) => {
       LIMIT 500
     `)
 
+    log('incidents request completed', {
+      durationMs: Date.now() - startedAt,
+      totalRowsInTable: totalResult.rows[0]?.total ?? null,
+      returnedRows: rows.length,
+      sampleIds: rows.slice(0, 5).map((row) => row.id),
+      sampleTypes: rows.slice(0, 5).map((row) => row.type),
+    })
+
     response.json({ incidents: rows })
   } catch (error) {
-    console.error('Failed to load incidents', error)
+    logError('incidents request failed', error, {
+      durationMs: Date.now() - startedAt,
+    })
     response.status(500).json({ error: 'Failed to load incidents' })
   }
 })
@@ -75,5 +115,9 @@ app.get(/.*/, (_request, response) => {
 })
 
 app.listen(port, () => {
-  console.log(`SmartWild dashboard listening on port ${port}`)
+  log('server started', {
+    port,
+    databaseConfigured: Boolean(pool),
+    databaseUrlHost: databaseUrl ? new URL(databaseUrl).host : null,
+  })
 })
