@@ -32,6 +32,8 @@ const nationalBoundarySources = [
   },
 ]
 const zoneWords = /\b(zone|zoning|unit|wilderness|habitat|management|buffer)\b/i
+const boundaryCache = new Map()
+const nationalBoundaryCacheKey = 'national'
 const incidentColors = {
   animal: '#4da3ff',
   human: '#42f59b',
@@ -66,15 +68,6 @@ function capitalizeLabel(value) {
 
   const normalizedValue = String(value).replaceAll('_', ' ')
   return normalizedValue.charAt(0).toUpperCase() + normalizedValue.slice(1)
-}
-
-function boundsToBox(bounds) {
-  return [
-    Number(bounds.getWest().toFixed(5)),
-    Number(bounds.getSouth().toFixed(5)),
-    Number(bounds.getEast().toFixed(5)),
-    Number(bounds.getNorth().toFixed(5)),
-  ]
 }
 
 function buildProtectedAreaUrl(box, zoom) {
@@ -118,6 +111,32 @@ function buildProtectedAreaUrl(box, zoom) {
     geometryPrecision: zoom < 8 ? '4' : '5',
     maxAllowableOffset: String(offset),
   })}`
+}
+
+function getBoundaryZoomBucket(zoom) {
+  if (zoom < 8) {
+    return 'regional'
+  }
+
+  if (zoom < 11) {
+    return 'area'
+  }
+
+  return 'local'
+}
+
+function getBoundaryCacheKey(bounds, zoom) {
+  const bucket = getBoundaryZoomBucket(zoom)
+  const cellSize = bucket === 'regional' ? 8 : bucket === 'area' ? 3 : 1
+  const west = Math.floor(bounds.getWest() / cellSize) * cellSize
+  const south = Math.floor(bounds.getSouth() / cellSize) * cellSize
+  const east = Math.ceil(bounds.getEast() / cellSize) * cellSize
+  const north = Math.ceil(bounds.getNorth() / cellSize) * cellSize
+
+  return {
+    box: [west, south, east, north],
+    key: `${bucket}:${west}:${south}:${east}:${north}`,
+  }
 }
 
 function buildNationalBoundaryUrl(source) {
@@ -237,6 +256,10 @@ function arcGisToFeatureCollection(data, sourceId = 'pad-us', idField = 'OBJECTI
 }
 
 async function loadNationalBoundarySources() {
+  if (boundaryCache.has(nationalBoundaryCacheKey)) {
+    return boundaryCache.get(nationalBoundaryCacheKey)
+  }
+
   const collections = await Promise.all(
     nationalBoundarySources.map(async (source) => {
       const response = await fetch(buildNationalBoundaryUrl(source))
@@ -249,7 +272,10 @@ async function loadNationalBoundarySources() {
     }),
   )
 
-  return mergeFeatureCollections(collections)
+  const mergedCollection = mergeFeatureCollections(collections)
+  boundaryCache.set(nationalBoundaryCacheKey, mergedCollection)
+
+  return mergedCollection
 }
 
 function mergeFeatureCollections(collections) {
@@ -279,16 +305,23 @@ function ProtectedBoundaryLayer() {
       const zoom = activeMap.getZoom()
       let nextAreas
 
-      if (zoom < 5) {
+      if (zoom < 7) {
         nextAreas = await loadNationalBoundarySources()
       } else {
-        const response = await fetch(buildProtectedAreaUrl(boundsToBox(activeMap.getBounds()), zoom))
+        const { box, key } = getBoundaryCacheKey(activeMap.getBounds(), zoom)
 
-        if (!response.ok) {
-          throw new Error(`PAD-US request failed: ${response.status}`)
+        if (boundaryCache.has(key)) {
+          nextAreas = boundaryCache.get(key)
+        } else {
+          const response = await fetch(buildProtectedAreaUrl(box, zoom))
+
+          if (!response.ok) {
+            throw new Error(`PAD-US request failed: ${response.status}`)
+          }
+
+          nextAreas = arcGisToFeatureCollection(await response.json())
+          boundaryCache.set(key, nextAreas)
         }
-
-        nextAreas = arcGisToFeatureCollection(await response.json())
       }
 
       if (requestId === requestIdRef.current && nextAreas.features.length > 0) {
@@ -304,7 +337,7 @@ function ProtectedBoundaryLayer() {
       window.clearTimeout(debounceTimerRef.current)
       debounceTimerRef.current = window.setTimeout(() => {
         loadBoundaries(activeMap)
-      }, 250)
+      }, 600)
     },
     [loadBoundaries],
   )
